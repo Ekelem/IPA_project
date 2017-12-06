@@ -708,6 +708,43 @@ element_terrain_end:
 
 %endmacro
 
+%macro move_forward 0
+   
+   movapd xmm0, [main_camera + Camera.angleY]
+   shufpd xmm0, xmm0, 1
+
+   sub rsp, 16
+   lea rdi, [rsp + 8]     ;sin(angleZ)
+   lea rsi, [rsp]         ;cos(angleZ)
+
+   call sincos
+   movapd xmm0, [rsp]
+   addpd xmm0, [main_camera + Camera.eyeX]
+   movapd [main_camera + Camera.eyeX], xmm0
+   add rsp, 16
+
+
+%endmacro
+
+%macro move_backward 0
+   
+   movapd xmm0, [main_camera + Camera.angleY]
+   shufpd xmm0, xmm0, 1
+
+   sub rsp, 16
+   lea rdi, [rsp + 8]     ;sin(angleZ)
+   lea rsi, [rsp]         ;cos(angleZ)
+
+   call sincos
+   movapd xmm0, [rsp]
+   xorpd xmm1, xmm1
+   subpd xmm1, xmm0
+   addpd xmm1, [main_camera + Camera.eyeX]
+   movapd [main_camera + Camera.eyeX], xmm0
+   add rsp, 16
+
+%endmacro
+
 %macro setup_graphic_dataptr 0
    
    mov rdi, GL_VERTEX_ARRAY
@@ -936,9 +973,6 @@ main_controller:
 
 KEY_DOWN_sw1:
 
-   ;mov rdi, [SDL_event + 4 + SDL_KeyboardEvent.scancode]
-   ;call Debug_tool_decimal
-
    movss xmm0, [SDL_event + 4 + SDL_KeyboardEvent.scancode]
    shufps xmm0, xmm0, 0
 
@@ -964,11 +998,13 @@ KEY_DOWN_sw1:
 
 FORWARD_sw2:
 
-   movsd xmm0, [main_camera + Camera.centerX]
-   movsd [main_camera + Camera.eyeX], xmm0
+   move_forward
 
-   movsd xmm0, [main_camera + Camera.centerY]
-   movsd [main_camera + Camera.eyeY], xmm0
+   ;movsd xmm0, [main_camera + Camera.centerX]
+   ;movsd [main_camera + Camera.eyeX], xmm0
+
+   ;movsd xmm0, [main_camera + Camera.centerY]
+   ;movsd [main_camera + Camera.eyeY], xmm0
 
    update_lookat
 
