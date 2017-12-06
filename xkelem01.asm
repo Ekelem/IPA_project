@@ -28,6 +28,7 @@ section  .text
    extern SDL_CreateWindow
    extern SDL_GL_CreateContext
    extern SDL_GL_SwapWindow
+   extern SDL_GetDesktopDisplayMode
 
 
    ;include ogl functions
@@ -73,7 +74,9 @@ section  .text
 %define SDL_INIT_VIDEO 0x00000020
 %define SDL_QUIT 0x100
 %define SDL_KEYDOWN 0x300
+%define SDL_WINDOWPOS_UNDEFINED 0x1fff0000
 
+%define GL_DEPTH_BUFFER_BIT 0x100
 %define GL_COLOR_MATERIAL 0xB57
 %define GL_ELEMENT_ARRAY_BUFFER 0x8893
 %define GL_INDEX_ARRAY 0x8077
@@ -139,6 +142,38 @@ struc Camera
    .upZ resq 1       ;aligned
 
 endstruc
+
+struc SDL_DisplayMode
+
+   .format resd 1
+   .width resd 1
+   .height resd 1
+   .refresh_rate resd 1
+   .driverdata resq 1
+
+endstruc
+
+%macro open_fullscreen_window 0
+
+   call _timer_start
+
+   mov rdi, 0
+   mov rsi, readed_data
+   call SDL_GetDesktopDisplayMode
+
+   mov rdi, window_title
+   mov rsi, SDL_WINDOWPOS_UNDEFINED
+   mov rdx, SDL_WINDOWPOS_UNDEFINED
+   mov rcx, [readed_data + SDL_DisplayMode.width]
+   mov r8, [readed_data + SDL_DisplayMode.height]
+   mov r9, 0x1003    ;SDL_WINDOW_OPENGL||SDL_WINDOW_FULLSCREEN
+
+   call SDL_CreateWindow
+   mov r12, rax
+   mov rcx, func_name_SDL_CreateWindow
+   call _timer_stop
+
+%endmacro
 
 %macro open_file 2
 
@@ -528,6 +563,22 @@ element_terrain_end:
 
 %endmacro
 
+%macro draw_skybox 0
+
+   call glPushMatrix
+   movapd xmm0, [main_camera + Camera.eyeX]
+   movapd xmm1, xmm0
+   shufpd xmm1, xmm1, 1
+   movapd xmm2, [main_camera + Camera.eyeZ]
+   call glTranslated
+   bind_texture 0
+   draw_mesh 0
+   mov rdi, GL_DEPTH_BUFFER_BIT
+   call glClear
+   call glPopMatrix
+
+%endmacro
+
 %macro draw_terrain 0
 
 	bind_texture 2
@@ -754,19 +805,7 @@ _start:
    mov rcx, func_name_SDL_Init ;output string
    call _timer_stop ;difference between time-stamps
 
-   call _timer_start
-
-   mov rdi, window_title
-   mov rsi, 640
-   mov rdx, 480
-   mov rcx, 640
-   mov r8, 480
-   mov r9, SDL_WINDOW_OPENGL
-
-   call SDL_CreateWindow
-   mov r12, rax
-   mov rcx, func_name_SDL_CreateWindow
-   call _timer_stop
+   open_fullscreen_window
 
    call _timer_start
    mov rdi, r12
@@ -1000,29 +1039,22 @@ break_sw1:
    mov rax, 0x3FF0000000000000
    push rax
 
-   movsd xmm0, [main_camera + Camera.eyeX]  ;eyeX
-   movsd xmm1, [main_camera + Camera.eyeY]  ;eyeY
-   movsd xmm2, [main_camera + Camera.eyeZ]  ;eyeZ
-   ;xorpd xmm3, xmm3
-   movsd xmm3, [main_camera + Camera.centerX]
-   movsd xmm4, [main_camera + Camera.centerY]
-   movsd xmm5, [main_camera + Camera.centerZ]
+   movapd xmm0, [main_camera + Camera.eyeX]  ;eyeX
+   movapd xmm1, xmm0
+   shufpd xmm1, xmm1, 1                      ;eyeY
+   movapd xmm2, [main_camera + Camera.eyeZ]  ;eyeZ
+   movapd xmm3, xmm2
+   shufpd xmm3, xmm3, 1                      ;centerX
+   movapd xmm4, [main_camera + Camera.centerY]  ;centerY
+   movapd xmm5, xmm4
+   shufpd xmm5, xmm5, 1                      ;centerZ
    xorpd xmm6, xmm6  ; 0
    xorpd xmm7, xmm7  ; 0
 
    call gluLookAt
    add rsp, 8
 
-   
-   call glPushMatrix
-   movapd xmm0, [main_camera + Camera.eyeX]
-   movapd xmm1, xmm0
-   shufpd xmm1, xmm1, 1
-   movapd xmm2, [main_camera + Camera.eyeZ]
-   call glTranslated
-   bind_texture 0
-   draw_mesh 0
-   call glPopMatrix
+   draw_skybox
 
    draw_terrain
 
