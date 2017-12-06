@@ -140,6 +140,7 @@ struc Camera
    .angleZ resq 1
 
    .upZ resq 1       ;aligned
+   .height resq 1
 
 endstruc
 
@@ -331,7 +332,33 @@ endstruc
 
 %endmacro
 
+%macro get_height 0
 
+   sub rsp, 16
+   cvttpd2dq xmm0, [main_camera + Camera.eyeX]
+   movapd [rsp], xmm0
+
+   xor rdi, rdi
+   xor rsi, rsi
+
+   mov edi, [rsp]
+   mov esi, [rsp+4]
+
+   shr rdi, 2
+   shr rsi, 2
+   shl rsi, 7
+
+   lea rax, [rdi+rsi]
+   shl rax, 2
+   add rax, terrain_height
+   cvtss2sd xmm0, [rax]
+   addsd xmm0, [main_camera + Camera.height]
+   movsd [main_camera + Camera.eyeZ], xmm0
+   add rsp, 16
+
+   update_lookat
+
+%endmacro
 
 %macro update_lookat 0  ;7843 cycles avg speed; 24 instructions
 
@@ -863,8 +890,7 @@ _start:
    mov rcx, func_name_Load_Terrain
    call _timer_stop
 
-   mov rdi, main_camera
-   update_lookat
+   get_height
 
    setup_graphic_dataptr
 
@@ -1026,6 +1052,8 @@ break_sw1:
 ; |_| \_\___|_| |_|\__,_|\___|_|   
 ;
 
+   get_height
+
    mov rdi, 0x4100 ;GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT
    call glClear
 
@@ -1167,7 +1195,7 @@ stack_start dq 0  ;init as NULL
 continuer dq 1
 
 align 16
-main_camera dq 2.0, 3.0, 50.0, 0.0, 0.0, 0.0, 0.0, 180.0, 1.0, 0.0
+main_camera dq 2.0, 3.0, 50.0, 0.0, 0.0, 0.0, 0.0, 180.0, 1.0, 5.0
 
 general_switch dd 8, 16, 24, 32, 40, 48, 56, 64
 
