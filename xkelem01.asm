@@ -726,6 +726,21 @@ element_terrain_end:
    mulpd %1, xmm3
 %endmacro
 
+%macro check_borders 2
+
+   xorpd xmm3, xmm3
+   cmppd xmm3, %1, 5
+   movapd xmm4, [borders]
+   cmppd xmm4, %1, 2
+   orpd xmm3, xmm4
+   andpd %2, xmm3
+   pcmpeqq xmm4, xmm4   ;-1
+   xorpd xmm4, xmm3
+   andpd %1, xmm4
+   addpd %1, %2
+
+%endmacro
+
 %macro move_forward 0
 
    movapd xmm0, [main_camera + Camera.angleY]
@@ -738,7 +753,9 @@ element_terrain_end:
    call sincos
    movapd xmm0, [rsp]
    aplly_speed xmm0
-   addpd xmm0, [main_camera + Camera.eyeX]
+   movapd xmm2, [main_camera + Camera.eyeX]
+   addpd xmm0, xmm2
+   check_borders xmm0, xmm2
    movapd [main_camera + Camera.eyeX], xmm0
    add rsp, 16
 
@@ -755,10 +772,11 @@ element_terrain_end:
 
    call sincos
    movapd xmm0, [rsp]
-   xorpd xmm1, xmm1
+   aplly_speed xmm0
+   movapd xmm2, [main_camera + Camera.eyeX]
+   movapd xmm1, xmm2
    subpd xmm1, xmm0
-   aplly_speed xmm1
-   addpd xmm1, [main_camera + Camera.eyeX]
+   check_borders xmm1, xmm0
    movapd [main_camera + Camera.eyeX], xmm1
    add rsp, 16
 
@@ -777,7 +795,9 @@ element_terrain_end:
    call sincos
    movapd xmm0, [rsp]
    aplly_speed xmm0
-   addpd xmm0, [main_camera + Camera.eyeX]
+   movapd xmm2, [main_camera + Camera.eyeX]
+   addpd xmm0, xmm2
+   check_borders xmm0, xmm2
    movapd [main_camera + Camera.eyeX], xmm0
    add rsp, 16
 
@@ -796,7 +816,9 @@ element_terrain_end:
    call sincos
    movapd xmm0, [rsp]
    aplly_speed xmm0
-   addpd xmm0, [main_camera + Camera.eyeX]
+   movapd xmm2, [main_camera + Camera.eyeX]
+   addpd xmm0, xmm2
+   check_borders xmm0, xmm2
    movapd [main_camera + Camera.eyeX], xmm0
    add rsp, 16
 
@@ -815,7 +837,9 @@ element_terrain_end:
    call sincos
    movapd xmm0, [rsp]
    aplly_speed xmm0
-   addpd xmm0, [main_camera + Camera.eyeX]
+   movapd xmm2, [main_camera + Camera.eyeX]
+   addpd xmm0, xmm2
+   check_borders xmm0, xmm2
    movapd [main_camera + Camera.eyeX], xmm0
    add rsp, 16
 
@@ -834,7 +858,9 @@ element_terrain_end:
    call sincos
    movapd xmm0, [rsp]
    aplly_speed xmm0
-   addpd xmm0, [main_camera + Camera.eyeX]
+   movapd xmm2, [main_camera + Camera.eyeX]
+   addpd xmm0, xmm2
+   check_borders xmm0, xmm2
    movapd [main_camera + Camera.eyeX], xmm0
    add rsp, 16
 
@@ -853,10 +879,11 @@ element_terrain_end:
 
    call sincos
    movapd xmm0, [rsp]
-   xorpd xmm1, xmm1
+   aplly_speed xmm0
+   movapd xmm2, [main_camera + Camera.eyeX]
+   movapd xmm1, xmm2
    subpd xmm1, xmm0
-   aplly_speed xmm1
-   addpd xmm1, [main_camera + Camera.eyeX]
+   check_borders xmm1, xmm2
    movapd [main_camera + Camera.eyeX], xmm1
    add rsp, 16
 
@@ -875,10 +902,11 @@ element_terrain_end:
 
    call sincos
    movapd xmm0, [rsp]
-   xorpd xmm1, xmm1
+   aplly_speed xmm0
+   movapd xmm2, [main_camera + Camera.eyeX]
+   movapd xmm1, xmm2
    subpd xmm1, xmm0
-   aplly_speed xmm1
-   addpd xmm1, [main_camera + Camera.eyeX]
+   check_borders xmm1, xmm2
    movapd [main_camera + Camera.eyeX], xmm1
    add rsp, 16
 
@@ -1535,6 +1563,7 @@ M_PI_DIV_180 dq 0x3F91D746A2529D39
 
 var0 dq 0x0
 align 16
+borders dq 508.0, 508.0
 speeds dq 0.5, 0.25
 angles dq 90.0, 45.0
 character_height dq 3.0, 1.5
