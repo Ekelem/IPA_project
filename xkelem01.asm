@@ -74,6 +74,7 @@ section  .text
 %define SDL_INIT_VIDEO 0x00000020
 %define SDL_QUIT 0x100
 %define SDL_KEYDOWN 0x300
+%define SDL_KEYUP 0x301
 %define SDL_WINDOWPOS_UNDEFINED 0x1fff0000
 
 %define GL_DEPTH_BUFFER_BIT 0x100
@@ -110,6 +111,11 @@ section  .text
 %define SDL_SCANCODE_DOWN 5308416
 %define SDL_SCANCODE_RIGHT 5177344
 
+%define SDL_SCANCODE_LCTRL 14680064
+%define SDL_SCANCODE_LSHIFT 14745600
+%define SDL_SCANCODE_E 6619136
+%define SDL_SCANCODE_Q 7405568
+
 struc SDL_KeyboardEvent
 
    .type resd 1 ;SDL_KEYDOWN or SDL_KEYUP
@@ -141,6 +147,9 @@ struc Camera
 
    .upZ resq 1       ;aligned
    .height resq 1
+
+   .speedcoef1 resq 1   ;aligned
+   .speedcoef2 resq 1
 
 endstruc
 
@@ -708,8 +717,17 @@ element_terrain_end:
 
 %endmacro
 
+%macro aplly_speed 1
+   movapd xmm2, [main_camera + Camera.speedcoef1]
+   movapd xmm3, xmm2
+   shufpd xmm2, xmm2, 0
+   shufpd xmm3, xmm3, 3
+   mulpd %1, xmm2
+   mulpd %1, xmm3
+%endmacro
+
 %macro move_forward 0
-   
+
    movapd xmm0, [main_camera + Camera.angleY]
    shufpd xmm0, xmm0, 1
 
@@ -719,10 +737,10 @@ element_terrain_end:
 
    call sincos
    movapd xmm0, [rsp]
+   aplly_speed xmm0
    addpd xmm0, [main_camera + Camera.eyeX]
    movapd [main_camera + Camera.eyeX], xmm0
    add rsp, 16
-
 
 %endmacro
 
@@ -739,8 +757,129 @@ element_terrain_end:
    movapd xmm0, [rsp]
    xorpd xmm1, xmm1
    subpd xmm1, xmm0
+   aplly_speed xmm1
    addpd xmm1, [main_camera + Camera.eyeX]
+   movapd [main_camera + Camera.eyeX], xmm1
+   add rsp, 16
+
+%endmacro
+
+%macro move_left 0
+
+   movapd xmm0, [main_camera + Camera.angleY]
+   shufpd xmm0, xmm0, 1
+   addsd xmm0, [angles]
+
+   sub rsp, 16
+   lea rdi, [rsp + 8]     ;sin(angleZ)
+   lea rsi, [rsp]         ;cos(angleZ)
+
+   call sincos
+   movapd xmm0, [rsp]
+   aplly_speed xmm0
+   addpd xmm0, [main_camera + Camera.eyeX]
    movapd [main_camera + Camera.eyeX], xmm0
+   add rsp, 16
+
+%endmacro
+
+%macro move_right 0
+
+   movapd xmm0, [main_camera + Camera.angleY]
+   shufpd xmm0, xmm0, 1
+   subsd xmm0, [angles]
+
+   sub rsp, 16
+   lea rdi, [rsp + 8]     ;sin(angleZ)
+   lea rsi, [rsp]         ;cos(angleZ)
+
+   call sincos
+   movapd xmm0, [rsp]
+   aplly_speed xmm0
+   addpd xmm0, [main_camera + Camera.eyeX]
+   movapd [main_camera + Camera.eyeX], xmm0
+   add rsp, 16
+
+%endmacro
+
+%macro move_forward_left 0
+
+   movapd xmm0, [main_camera + Camera.angleY]
+   shufpd xmm0, xmm0, 1
+   addsd xmm0, [angles+8]
+
+   sub rsp, 16
+   lea rdi, [rsp + 8]     ;sin(angleZ)
+   lea rsi, [rsp]         ;cos(angleZ)
+
+   call sincos
+   movapd xmm0, [rsp]
+   aplly_speed xmm0
+   addpd xmm0, [main_camera + Camera.eyeX]
+   movapd [main_camera + Camera.eyeX], xmm0
+   add rsp, 16
+
+%endmacro
+
+%macro move_forward_right 0
+
+   movapd xmm0, [main_camera + Camera.angleY]
+   shufpd xmm0, xmm0, 1
+   subsd xmm0, [angles+8]
+
+   sub rsp, 16
+   lea rdi, [rsp + 8]     ;sin(angleZ)
+   lea rsi, [rsp]         ;cos(angleZ)
+
+   call sincos
+   movapd xmm0, [rsp]
+   aplly_speed xmm0
+   addpd xmm0, [main_camera + Camera.eyeX]
+   movapd [main_camera + Camera.eyeX], xmm0
+   add rsp, 16
+
+%endmacro
+
+%macro move_backward_left 0
+   
+   movapd xmm0, [main_camera + Camera.angleY]
+   shufpd xmm0, xmm0, 1
+   movsd xmm1, [angles+8]
+   subsd xmm0, xmm1
+
+   sub rsp, 16
+   lea rdi, [rsp + 8]     ;sin(angleZ)
+   lea rsi, [rsp]         ;cos(angleZ)
+
+   call sincos
+   movapd xmm0, [rsp]
+   xorpd xmm1, xmm1
+   subpd xmm1, xmm0
+   aplly_speed xmm1
+   addpd xmm1, [main_camera + Camera.eyeX]
+   movapd [main_camera + Camera.eyeX], xmm1
+   add rsp, 16
+
+%endmacro
+
+%macro move_backward_right 0
+   
+   movapd xmm0, [main_camera + Camera.angleY]
+   shufpd xmm0, xmm0, 1
+   movsd xmm1, [angles+8]
+   addsd xmm0, xmm1
+
+   sub rsp, 16
+   lea rdi, [rsp + 8]     ;sin(angleZ)
+   lea rsi, [rsp]         ;cos(angleZ)
+
+   call sincos
+   movapd xmm0, [rsp]
+   xorpd xmm1, xmm1
+   subpd xmm1, xmm0
+   aplly_speed xmm1
+   addpd xmm1, [main_camera + Camera.eyeX]
+   movapd [main_camera + Camera.eyeX], xmm1
    add rsp, 16
 
 %endmacro
@@ -772,6 +911,50 @@ element_terrain_end:
    mov rdx, 32
    mov rcx, 24
    call glTexCoordPointer
+
+%endmacro
+
+%macro movement 0
+
+   movapd xmm0, [keystates]
+   ;xorpd xmm1, xmm1
+   ;cmpps xmm0, xmm1, 4
+
+   andps xmm0, [keystates_offset]
+   haddps xmm0, xmm0
+   haddps xmm0, xmm0
+
+   movapd [xmm_something], xmm0
+   mov rax, [xmm_something]
+
+   mov rax, [xmm_something]
+
+   jmp [eax+keystates_labels]
+
+w_move:
+   move_forward
+   jmp not_move
+s_move:
+   move_backward
+   jmp not_move
+a_move:
+   move_left
+   jmp not_move
+wa_move:
+   move_forward_left
+   jmp not_move
+sa_move:
+   move_backward_left
+   jmp not_move
+d_move:
+   move_right
+   jmp not_move
+wd_move:
+   move_forward_right
+   jmp not_move
+sd_move:
+   move_backward_right
+not_move:
 
 %endmacro
    
@@ -951,17 +1134,14 @@ main_controller:
    cmp rax, 0
    je break_sw1 ;no need for checking event
 
-   ;mov rdi, [SDL_event]
-   ;call Debug_tool_decimal
-
    movss xmm0, [SDL_event]
    shufps xmm0, xmm0, 0
 
-   movups xmm1, [switch1] ;need to be reworked on aligned variant
+   movaps xmm1, [switch1]
 
    cmpps xmm0, xmm1, 0
 
-   movups xmm1, [general_switch]
+   movaps xmm1, [general_switch]
    andps xmm0, xmm1
    haddps xmm0, xmm0
    haddps xmm0, xmm0
@@ -973,21 +1153,28 @@ main_controller:
 
 KEY_DOWN_sw1:
 
+   ;mov edi, [SDL_event + 4 + SDL_KeyboardEvent.scancode]
+   ;call Debug_tool_decimal
    movss xmm0, [SDL_event + 4 + SDL_KeyboardEvent.scancode]
    shufps xmm0, xmm0, 0
 
    movups xmm1, [switch2]
    movups xmm2, [switch2+16]
+   movups xmm3, [switch2+32]
 
    cmpps xmm1, xmm0, 0
    cmpps xmm2, xmm0, 0
+   cmpps xmm3, xmm0, 0
 
    movups xmm0, [general_switch]
    andps xmm1, xmm0
    movups xmm0, [general_switch+16]
    andps xmm2, xmm0
+   movups xmm0, [general_switch+32]
+   andps xmm3, xmm0
 
-   addps xmm1, xmm2
+   paddd xmm1, xmm2
+   paddd xmm1, xmm3
    haddps xmm1, xmm1
    haddps xmm1, xmm1
 
@@ -998,55 +1185,57 @@ KEY_DOWN_sw1:
 
 FORWARD_sw2:
 
-   move_forward
+   mov eax, -1
+   mov ecx, eax
+   mov ebx, [keystates+4]  ;S keystate
+   xor ecx, ebx
+   and ebx, ecx
+   and eax, ecx
 
-   ;movsd xmm0, [main_camera + Camera.centerX]
-   ;movsd [main_camera + Camera.eyeX], xmm0
-
-   ;movsd xmm0, [main_camera + Camera.centerY]
-   ;movsd [main_camera + Camera.eyeY], xmm0
-
-   update_lookat
+   mov [keystates], eax
+   mov [keystates+4], ebx
 
    jmp break_sw1
 
 BACKWARD_sw2:
-   movsd xmm0, [main_camera + Camera.centerX]
-   movsd xmm1, [main_camera + Camera.eyeX]
-   subsd xmm0, xmm1
-   subsd xmm1, xmm0
-   movsd [main_camera + Camera.eyeX], xmm1
+   
+   mov eax, -1
+   mov ecx, eax
+   mov ebx, [keystates]    ;W keystate
+   xor ecx, ebx
+   and ebx, ecx
+   and eax, ecx
 
-   movsd xmm0, [main_camera + Camera.centerY]
-   movsd xmm1, [main_camera + Camera.eyeY]
-   subsd xmm0, xmm1
-   subsd xmm1, xmm0
-   movsd [main_camera + Camera.eyeY], xmm1
-
-   update_lookat
+   mov [keystates], ebx
+   mov [keystates+4], eax
 
    jmp break_sw1
 
-LEFT_sw1:
+LEFT_sw2:
 
-   mov rdi, main_camera
-   call move_side
+   mov eax, -1
+   mov ecx, eax
+   mov ebx, [keystates+12]  ;D keystate
+   xor ecx, ebx
+   and ebx, ecx
+   and eax, ecx
 
-   ;movsd xmm0, [main_camera + Camera.centerX]
-   ;movsd xmm1, [main_camera + Camera.eyeX]
-   ;subsd xmm0, xmm1
+   mov [keystates+8], eax
+   mov [keystates+12], ebx
 
-   ;movsd xmm2, [main_camera + Camera.centerY]
-   ;movsd xmm3, [main_camera + Camera.eyeY]
-   ;subsd xmm2, xmm3
+   jmp break_sw1
 
-   ;addsd xmm3, xmm0
-   ;addsd xmm1, xmm2
+RIGHT_sw2:
 
-   ;movsd [main_camera + Camera.eyeX], xmm1
-   ;movsd [main_camera + Camera.eyeY], xmm3
+   mov eax, -1
+   mov ecx, eax
+   mov ebx, [keystates+8]    ;A keystate
+   xor ecx, ebx
+   and ebx, ecx
+   and eax, ecx
 
-   update_lookat
+   mov [keystates+8], ebx
+   mov [keystates+12], eax
 
    jmp break_sw1
 
@@ -1072,11 +1261,93 @@ ROTATE_LEFT_sw2:
 
    jmp break_sw1
 
+CROUCH_pressed:
+   mov rax, [speeds+8]  ;lower speed
+   mov [main_camera + Camera.speedcoef2], rax
+   mov rax, [character_height+8]    ;lower view
+   mov [main_camera + Camera.height], rax
+   jmp break_sw1
+
+SPRINT_pressed:
+   mov rax, [speeds]    ;more speed
+   mov [main_camera + Camera.speedcoef1], rax
+   jmp break_sw1
+
+ACTION1_pressed:
+
+   jmp break_sw1
+
+
 SDL_QUIT_sw1:
    mov r10, 0
    mov [continuer], r10
    jmp break_sw1
 default_sw1:
+   jmp break_sw1
+
+KEY_UP_sw1:
+
+   movss xmm0, [SDL_event + 4 + SDL_KeyboardEvent.scancode]
+   shufps xmm0, xmm0, 0
+   movapd xmm1, [release_keys]
+   movapd xmm2, [release_keys+16]
+   movapd xmm3, [release_keys+32]
+
+   movapd xmm4, [general_switch]
+   movapd xmm5, [general_switch+16]
+   movapd xmm6, [general_switch+32]
+
+   cmpps xmm1, xmm0, 0
+   cmpps xmm2, xmm0, 0
+   cmpps xmm3, xmm0, 0
+
+   andps xmm1, xmm4
+   andps xmm2, xmm5
+   andps xmm3, xmm6
+
+   paddd xmm1, xmm2
+   paddd xmm1, xmm3
+
+   haddps xmm1, xmm1
+   haddps xmm1, xmm1   
+
+   movapd [xmm_something], xmm1
+   mov rax, [xmm_something]
+
+   mov rax, [xmm_something]
+
+   jmp [eax+release_labels]
+
+FORWARD_release:
+   xor eax, eax
+   mov [keystates], eax
+   jmp break_sw1
+
+BACKWARD_release:
+   xor eax, eax
+   mov [keystates+4], eax
+   jmp break_sw1
+
+LEFT_release:
+   xor eax, eax
+   mov [keystates+8], eax
+   jmp break_sw1
+
+RIGHT_release:
+   xor eax,eax
+   mov [keystates+12], eax
+   jmp break_sw1
+
+CROUCH_release:
+   mov rax, [speeds]  ;more speed
+   mov [main_camera + Camera.speedcoef2], rax
+   mov rax, [character_height]
+   mov [main_camera + Camera.height], rax
+   jmp break_sw1
+
+SPRINT_release:
+   mov rax, [speeds+8]    ;lower speed
+   mov [main_camera + Camera.speedcoef1], rax
    jmp break_sw1
 
 break_sw1:
@@ -1185,6 +1456,8 @@ break_sw1:
    ;mov rcx, 0
    ;call glDrawElements
 
+   movement
+
    call glFlush
 
    mov rdi, r12
@@ -1231,15 +1504,25 @@ stack_start dq 0  ;init as NULL
 continuer dq 1
 
 align 16
-main_camera dq 2.0, 3.0, 50.0, 0.0, 0.0, 0.0, 0.0, 180.0, 1.0, 5.0
+main_camera dq 2.0, 3.0, 50.0, 0.0, 0.0, 0.0, 0.0, 180.0, 1.0, 3.0, 0.25, 0.5
 
-general_switch dd 8, 16, 24, 32, 40, 48, 56, 64
+general_switch dd 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96
 
-switch1 dd 0x0 , 0x0 , SDL_KEYDOWN , SDL_QUIT
-switch1_labels dq default_sw1, default_sw1, default_sw1, KEY_DOWN_sw1, SDL_QUIT_sw1
+switch1 dd 0x0 , SDL_KEYUP , SDL_KEYDOWN , SDL_QUIT
+switch1_labels dq default_sw1, default_sw1, KEY_UP_sw1, KEY_DOWN_sw1, SDL_QUIT_sw1
 
-switch2 dd SDL_SCANCODE_W , SDL_SCANCODE_A , SDL_SCANCODE_S, SDL_SCANCODE_D, SDL_SCANCODE_UP, SDL_SCANCODE_LEFT, SDL_SCANCODE_DOWN, SDL_SCANCODE_RIGHT
-switch2_labels dq default_sw1, FORWARD_sw2, LEFT_sw1, BACKWARD_sw2, SDL_QUIT_sw1, FORWARD_sw2, ROTATE_LEFT_sw2, BACKWARD_sw2, ROTATE_RIGHT_sw2
+align 16
+keystates dd 0, 0, 0, 0
+keystates_offset dd 8, 16, 24, 48
+keystates_labels dq not_move, w_move, s_move, a_move, wa_move, sa_move, d_move, wd_move, sd_move
+
+align 16
+release_keys dd 0 , 0 , SDL_SCANCODE_W , SDL_SCANCODE_A , SDL_SCANCODE_S, SDL_SCANCODE_D, SDL_SCANCODE_UP, SDL_SCANCODE_LEFT, SDL_SCANCODE_DOWN, SDL_SCANCODE_RIGHT, SDL_SCANCODE_LCTRL, SDL_SCANCODE_LSHIFT
+release_labels dq break_sw1, break_sw1, break_sw1, FORWARD_release, LEFT_release, BACKWARD_release, RIGHT_release, FORWARD_release, break_sw1, BACKWARD_release, break_sw1, CROUCH_release, SPRINT_release
+
+align 16
+switch2 dd SDL_SCANCODE_W , SDL_SCANCODE_A , SDL_SCANCODE_S, SDL_SCANCODE_D, SDL_SCANCODE_UP, SDL_SCANCODE_LEFT, SDL_SCANCODE_DOWN, SDL_SCANCODE_RIGHT, SDL_SCANCODE_LCTRL, SDL_SCANCODE_LSHIFT, SDL_SCANCODE_E, SDL_SCANCODE_ESC
+switch2_labels dq default_sw1, FORWARD_sw2, LEFT_sw2, BACKWARD_sw2, RIGHT_sw2, FORWARD_sw2, ROTATE_LEFT_sw2, BACKWARD_sw2, ROTATE_RIGHT_sw2, CROUCH_pressed, SPRINT_pressed, ACTION1_pressed, SDL_QUIT_sw1
 
 verticles dd 1.0, -1.0, 1.0,    -1.0, -1.0, -1.0,    1.0, -1.0, -1.0
 indices dd 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 , 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,33,34,35,36
@@ -1252,6 +1535,9 @@ M_PI_DIV_180 dq 0x3F91D746A2529D39
 
 var0 dq 0x0
 align 16
+speeds dq 0.5, 0.25
+angles dq 90.0, 45.0
+character_height dq 3.0, 1.5
 var1 dd 0.0, 1.0, 0.0, 0.0
 terrain_size dd 4.0, 0.0, 0.0, 0.0
 mask3 dd -1, 0, -1, -1
