@@ -7,7 +7,7 @@ section  .text
    extern Debug_tool_double ;only for debuging purposes
    extern Debug_tool_decimal
    extern Debug_tool_float
-   extern move_side
+   extern mouse_caption
 
    extern update_look
    extern texture_create
@@ -29,6 +29,7 @@ section  .text
    extern SDL_GL_CreateContext
    extern SDL_GL_SwapWindow
    extern SDL_GetDesktopDisplayMode
+   extern SDL_GetRelativeMouseState
 
 
    ;include ogl functions
@@ -53,6 +54,7 @@ section  .text
    extern glTexImage2D
    extern glTexCoordPointer
    extern glGenerateMipmap
+   extern glRotated
 
    extern glClear
    extern glMatrixMode
@@ -60,6 +62,7 @@ section  .text
    extern glPushMatrix
    extern glTranslated
    extern glPopMatrix
+   extern glBufferSubData
 
    extern gluLookAt
 
@@ -75,6 +78,7 @@ section  .text
 %define SDL_QUIT 0x100
 %define SDL_KEYDOWN 0x300
 %define SDL_KEYUP 0x301
+%define SDL_MOUSEMOTION 0x400
 %define SDL_WINDOWPOS_UNDEFINED 0x1fff0000
 
 %define GL_DEPTH_BUFFER_BIT 0x100
@@ -115,6 +119,20 @@ section  .text
 %define SDL_SCANCODE_LSHIFT 14745600
 %define SDL_SCANCODE_E 6619136
 %define SDL_SCANCODE_Q 7405568
+
+%define SDL_SCANCODE_PLUS 5701632
+%define SDL_SCANCODE_MINUS 5636096
+
+struc SDL_MouseMotionEvent
+
+   .type resb 1
+   .state resb 1
+   .x resb 1
+   .y resb 1
+   .relx resb 1
+   .rely resb 1
+
+endstruc
 
 struc SDL_KeyboardEvent
 
@@ -371,30 +389,37 @@ endstruc
 
 %macro update_lookat 0  ;7843 cycles avg speed; 24 instructions
 
-   movapd xmm0, [main_camera + Camera.angleY]   ;angleY|angleZ
-   movapd xmm7, xmm0
-   sub rsp, 32
-   lea rdi, [rsp]       ;sin(angleY)
-   lea rsi, [rsp + 8]   ;cos(angleY)
-   call sincos
-   movapd xmm0, xmm7
-   shufpd xmm0, xmm0, 1    ;angleZ
-   lea rdi, [rsp + 16]  ;sin(angleZ)
-   lea rsi, [rsp + 24]  ;cos(angleZ)
-   call sincos
-   movapd xmm0, [rsp]   ;sin(Y)|cos(Y)
-   movapd xmm3, xmm0
-   shufpd xmm0, xmm0, 3
-   movapd xmm1, [rsp + 16]
-   mulpd xmm0, xmm1     ;sin(Z)*cos(Y)|cos(Z)*cos(Y)
-   shufpd xmm0, xmm0, 1 ;swap
-   movapd xmm2, [main_camera + Camera.eyeX]
-   addpd xmm0, xmm2
-   movupd [main_camera + Camera.centerX], xmm0     ; TODO: solve alignment(probably not possible)
-   movsd xmm4, [main_camera + Camera.eyeZ]
-   addsd xmm3, xmm4
-   movsd [main_camera + Camera.centerZ], xmm3
-   add rsp, 32
+   ;movapd xmm0, [main_camera + Camera.angleY]   ;angleY|angleZ
+   ;movapd xmm7, xmm0
+   ;sub rsp, 32
+   ;lea rdi, [rsp]       ;sin(angleY)
+   ;lea rsi, [rsp + 8]   ;cos(angleY)
+   ;sub rsp, 32
+   ;call sincos
+   ;add rsp, 32
+   ;movapd xmm0, xmm7
+   ;shufpd xmm0, xmm0, 1    ;angleZ
+   ;lea rdi, [rsp + 16]  ;sin(angleZ)
+   ;lea rsi, [rsp + 24]  ;cos(angleZ)
+   ;sub rsp, 32
+   ;call sincos
+   ;add rsp, 32
+   ;movapd xmm0, [rsp]   ;sin(Y)|cos(Y)
+   ;movapd xmm3, xmm0
+   ;shufpd xmm0, xmm0, 3
+   ;movapd xmm1, [rsp + 16]
+   ;mulpd xmm0, xmm1     ;sin(Z)*cos(Y)|cos(Z)*cos(Y)
+   ;shufpd xmm0, xmm0, 1 ;swap
+   ;movapd xmm2, [main_camera + Camera.eyeX]
+   ;addpd xmm0, xmm2
+   ;movupd [main_camera + Camera.centerX], xmm0     ; TODO: solve alignment(probably not possible)
+   ;movsd xmm4, [main_camera + Camera.eyeZ]
+   ;addsd xmm3, xmm4
+   ;movsd [main_camera + Camera.centerZ], xmm3
+   ;add rsp, 32
+
+   mov rdi, main_camera
+   call update_look
 
 %endmacro
 
@@ -478,7 +503,6 @@ terrain_new_row:
 terrain_continue:
    movapd xmm3, xmm0
    movapd xmm1, [rdx]	;xmm1 = Z1|Z2|Z3|Z4
-   ;divps xmm1, xmm4
    movapd xmm2, xmm1
    andps xmm2, xmm7		;xmm2 = Z1|0.0|Z3|Z4
 
@@ -615,6 +639,31 @@ element_terrain_end:
 
 %endmacro
 
+%macro draw_weapon 0
+
+   call glPushMatrix
+   movapd xmm0, [main_camera + Camera.eyeX]
+   movapd xmm1, xmm0
+   shufpd xmm1, xmm1, 1
+   movapd xmm2, [main_camera + Camera.eyeZ]
+   call glTranslated
+   movapd xmm0, [main_camera + Camera.angleY]
+   movsd xmm2, [var1d]
+   xorpd xmm1, xmm1
+   xorpd xmm3, xmm3
+   call glRotated
+   movsd xmm0, [main_camera + Camera.angleZ]
+   movsd xmm3, [var1d]
+   xorpd xmm1, xmm1
+   xorpd xmm2, xmm2
+   call glRotated
+
+   bind_texture 1
+   draw_mesh 1
+   call glPopMatrix
+
+%endmacro
+
 %macro draw_terrain 0
 
 	bind_texture 2
@@ -738,6 +787,25 @@ element_terrain_end:
    xorpd xmm4, xmm3
    andpd %1, xmm4
    addpd %1, %2
+
+%endmacro
+
+%macro mouse_caption 0
+
+   sub rsp, 16
+   lea rdi, [rsp + 4]
+   lea rsi, [rsp]
+   call SDL_GetRelativeMouseState
+
+   cvtdq2pd xmm0, [rsp]
+   mulpd xmm0, [M_PI_DIV_180]
+   movapd xmm1, [main_camera + Camera.angleY]
+   subpd xmm1, xmm0
+   movapd [main_camera + Camera.angleY], xmm1
+
+   movapd xmm0, xmm1
+
+   add rsp, 16
 
 %endmacro
 
@@ -1169,12 +1237,13 @@ main_controller:
 
    cmpps xmm0, xmm1, 0
 
+
    movaps xmm1, [general_switch]
    andps xmm0, xmm1
    haddps xmm0, xmm0
    haddps xmm0, xmm0
 
-   movups [xmm_something], xmm0
+   movaps [xmm_something], xmm0
    mov eax, [xmm_something]
 
    jmp [rax + switch1_labels]
@@ -1186,27 +1255,32 @@ KEY_DOWN_sw1:
    movss xmm0, [SDL_event + 4 + SDL_KeyboardEvent.scancode]
    shufps xmm0, xmm0, 0
 
-   movups xmm1, [switch2]
-   movups xmm2, [switch2+16]
-   movups xmm3, [switch2+32]
+   movaps xmm1, [switch2]
+   movaps xmm2, [switch2+16]
+   movaps xmm3, [switch2+32]
+   movaps xmm4, [switch2+48]
 
    cmpps xmm1, xmm0, 0
    cmpps xmm2, xmm0, 0
    cmpps xmm3, xmm0, 0
+   cmpps xmm4, xmm0, 0
 
-   movups xmm0, [general_switch]
+   movaps xmm0, [general_switch]
    andps xmm1, xmm0
-   movups xmm0, [general_switch+16]
+   movaps xmm0, [general_switch+16]
    andps xmm2, xmm0
-   movups xmm0, [general_switch+32]
+   movaps xmm0, [general_switch+32]
    andps xmm3, xmm0
+   movaps xmm0, [general_switch+48]
+   andps xmm4, xmm0
 
    paddd xmm1, xmm2
    paddd xmm1, xmm3
+   paddd xmm1, xmm4
    haddps xmm1, xmm1
    haddps xmm1, xmm1
 
-   movups [xmm_something], xmm1
+   movaps [xmm_something], xmm1
    mov eax, [xmm_something]
 
    jmp [eax + switch2_labels]
@@ -1302,6 +1376,78 @@ SPRINT_pressed:
    jmp break_sw1
 
 ACTION1_pressed:
+
+   mov rdi, GL_ARRAY_BUFFER
+   mov rsi, [buffers_ids+(16*3)]
+   call glBindBuffer
+
+   sub rsp, 16
+   cvttpd2dq xmm0, [main_camera + Camera.eyeX]
+   movapd [rsp], xmm0
+
+   xor rdi, rdi
+   xor rsi, rsi
+
+   mov edi, [rsp]
+   mov esi, [rsp+4]
+
+   shr rdi, 2
+   shr rsi, 2
+   shl rsi, 7
+
+   lea rax, [rdi+rsi]
+   mov rsi, rax
+   shl rax, 2
+   add rax, terrain_height
+   movss xmm0, [rax]
+   addss xmm0, [var1f]
+   movss [rax], xmm0
+   mov rdi, GL_ARRAY_BUFFER
+   shl rsi, 5
+   add rsi, 8
+   mov rdx, 4
+   mov rcx, rax
+   call glBufferSubData
+
+   add rsp, 16
+
+   jmp break_sw1
+
+ACTION2_pressed:
+
+   mov rdi, GL_ARRAY_BUFFER
+   mov rsi, [buffers_ids+(16*3)]
+   call glBindBuffer
+
+   sub rsp, 16
+   cvttpd2dq xmm0, [main_camera + Camera.eyeX]
+   movapd [rsp], xmm0
+
+   xor rdi, rdi
+   xor rsi, rsi
+
+   mov edi, [rsp]
+   mov esi, [rsp+4]
+
+   shr rdi, 2
+   shr rsi, 2
+   shl rsi, 7
+
+   lea rax, [rdi+rsi]
+   mov rsi, rax
+   shl rax, 2
+   add rax, terrain_height
+   movss xmm0, [rax]
+   subss xmm0, [var1f]
+   movss [rax], xmm0
+   mov rdi, GL_ARRAY_BUFFER
+   shl rsi, 5
+   add rsi, 8
+   mov rdx, 4
+   mov rcx, rax
+   call glBufferSubData
+
+   add rsp, 16
 
    jmp break_sw1
 
@@ -1424,65 +1570,7 @@ break_sw1:
    bind_texture 1
    draw_mesh 1
 
-   ;mov rdi, GL_VERTEX_ARRAY
-   ;call glEnableClientState
-
-   ;mov rdi, GL_NORMAL_ARRAY
-   ;call glEnableClientState
-
-   ;mov rdi, GL_TEXTURE_COORD_ARRAY
-   ;call glEnableClientState
-
-   ;mov rdi, GL_ARRAY_BUFFER
-   ;mov rsi, [buffers_ids]
-   ;call glBindBuffer
-
-   ;mov rdi, GL_ELEMENT_ARRAY_BUFFER
-   ;mov rsi, [buffers_ids+8]  ;buffers_ids
-   ;call glBindBuffer
-
-   ;setup_graphic_dataptr
-
-   ;mov rdi, 3
-   ;mov rsi, GL_FLOAT
-   ;mov rdx, 32
-   ;mov rcx, 0
-   ;call glVertexPointer
-
-   ;mov rdi, GL_FLOAT
-   ;mov rsi, 32
-   ;mov rdx, 12
-   ;call glNormalPointer
-
-   ;mov rdi, 2
-   ;mov rsi, GL_FLOAT
-   ;mov rdx, 32
-   ;mov rcx, 24
-   ;call glTexCoordPointer
-
-   ;mov rdi, GL_ARRAY_BUFFER
-   ;mov rsi, [buffers_ids+8]
-   ;call glBindBuffer
-
-   ;mov rdi, GL_TEXTURE_2D
-   ;mov rsi, [textures_ids]
-   ;call glBindTexture
-
-
-   ;mov rdi, GL_TRIANGLES           ;;WITH VBO NO LONGER NEEDED
-   ;mov rsi, 0 ;first index
-   ;mov rdx, [buffers_sizes+16]
-   ;call glDrawArrays
-
-   ;mov rdi, GL_ELEMENT_ARRAY_BUFFER
-   ;mov rsi, [buffers_ids+8]  ;buffers_ids
-   ;call glBindBuffer
-
-   ;mov rdi, GL_TRIANGLES
-   ;mov rsi, [buffers_sizes+24]
-   ;mov rdx, GL_UNSIGNED_INT
-   ;mov rcx, 0
-   ;call glDrawElements
+   mouse_caption
 
    movement
 
@@ -1491,7 +1579,7 @@ break_sw1:
    mov rdi, r12
    call SDL_GL_SwapWindow
 
-   mov rdi, 10
+   mov rdi, 1
    call SDL_Delay
    jmp main_controller
 
@@ -1532,9 +1620,9 @@ stack_start dq 0  ;init as NULL
 continuer dq 1
 
 align 16
-main_camera dq 2.0, 3.0, 50.0, 0.0, 0.0, 0.0, 0.0, 180.0, 1.0, 3.0, 0.25, 0.5
-
-general_switch dd 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96
+main_camera dq 2.0, 3.0, 50.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 3.0, 0.25, 0.5
+align 16
+general_switch dd 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128 
 
 switch1 dd 0x0 , SDL_KEYUP , SDL_KEYDOWN , SDL_QUIT
 switch1_labels dq default_sw1, default_sw1, KEY_UP_sw1, KEY_DOWN_sw1, SDL_QUIT_sw1
@@ -1549,25 +1637,18 @@ release_keys dd 0 , 0 , SDL_SCANCODE_W , SDL_SCANCODE_A , SDL_SCANCODE_S, SDL_SC
 release_labels dq break_sw1, break_sw1, break_sw1, FORWARD_release, LEFT_release, BACKWARD_release, RIGHT_release, FORWARD_release, break_sw1, BACKWARD_release, break_sw1, CROUCH_release, SPRINT_release
 
 align 16
-switch2 dd SDL_SCANCODE_W , SDL_SCANCODE_A , SDL_SCANCODE_S, SDL_SCANCODE_D, SDL_SCANCODE_UP, SDL_SCANCODE_LEFT, SDL_SCANCODE_DOWN, SDL_SCANCODE_RIGHT, SDL_SCANCODE_LCTRL, SDL_SCANCODE_LSHIFT, SDL_SCANCODE_E, SDL_SCANCODE_ESC
-switch2_labels dq default_sw1, FORWARD_sw2, LEFT_sw2, BACKWARD_sw2, RIGHT_sw2, FORWARD_sw2, ROTATE_LEFT_sw2, BACKWARD_sw2, ROTATE_RIGHT_sw2, CROUCH_pressed, SPRINT_pressed, ACTION1_pressed, SDL_QUIT_sw1
+switch2 dd SDL_SCANCODE_W , SDL_SCANCODE_A , SDL_SCANCODE_S, SDL_SCANCODE_D, SDL_SCANCODE_UP, SDL_SCANCODE_LEFT, SDL_SCANCODE_DOWN, SDL_SCANCODE_RIGHT, SDL_SCANCODE_LCTRL, SDL_SCANCODE_LSHIFT, SDL_SCANCODE_PLUS , SDL_SCANCODE_MINUS, 0x0, 0x0, 0x0, SDL_SCANCODE_ESC
+switch2_labels dq default_sw1, FORWARD_sw2, LEFT_sw2, BACKWARD_sw2, RIGHT_sw2, FORWARD_sw2, ROTATE_LEFT_sw2, BACKWARD_sw2, ROTATE_RIGHT_sw2, CROUCH_pressed, SPRINT_pressed, ACTION1_pressed, ACTION2_pressed, SDL_QUIT_sw1, default_sw1, default_sw1, SDL_QUIT_sw1
 
-verticles dd 1.0, -1.0, 1.0,    -1.0, -1.0, -1.0,    1.0, -1.0, -1.0
-indices dd 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 , 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,33,34,35,36
-test_image dd 1.0, 1.0, 1.0,  0.0,0.0,0.0,  0.0,0.0,0.0,  0.0,0.0,0.0
-
-data dd 0.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,      1.0,0.0,0.0,0.0,0.0,1.0,1.0,0.0,     0.0,1.0,0.0,0.0,0.0,1.0,0.0,1.0
-;32*3
-
-M_PI_DIV_180 dq 0x3F91D746A2529D39
-
-var0 dq 0x0
 align 16
+M_PI_DIV_180 dq 0x3F91D746A2529D39, 0x3F91D746A2529D39
 borders dq 508.0, 508.0
 speeds dq 0.5, 0.25
 angles dq 90.0, 45.0
 character_height dq 3.0, 1.5
 var1 dd 0.0, 1.0, 0.0, 0.0
+var1f dd 1.0, 0.0, 0.0, 0.0
+var1d dq 1.0, 0.0
 terrain_size dd 4.0, 0.0, 0.0, 0.0
 mask3 dd -1, 0, -1, -1
 load_terrain_constant100 dd 10.0, 10.0, 10.0, 10.0
@@ -1592,8 +1673,6 @@ func_name_Load_Terrain db 'Load_Terrain', 0
 debug_Uint32_fmt db 'output decimal: %d', 0xa, 0
 debug_double_fmt db 'output double: %f', 0xa, 0
 
-;insta_args_gluPerspective dq 
-
 section .bss   ;uninitialised data
 align 16
 xmm_something resq 2
@@ -1608,5 +1687,6 @@ textures_sizes resq 16
 fd_out resq 1
 fd_in  resq 1
 align 16
+boxes resd 1024
 terrain_height resd 16384
 readed_data resd 2097152
