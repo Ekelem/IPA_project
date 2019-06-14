@@ -7,10 +7,8 @@ section  .text
    extern Debug_tool_double ;only for debuging purposes
    extern Debug_tool_decimal
    extern Debug_tool_float
-   extern mouse_caption
 
    extern update_look
-   extern texture_create
 
    extern cos
    extern sin
@@ -315,18 +313,19 @@ endstruc
    mov rsi, [textures_ids + (%1*8)]
    call glBindTexture
 
-   mov rdi, GL_TEXTURE_2D
-   xor rsi, rsi
-   mov rdx, GL_RGB
-   mov rcx, [textures_sizes+16+(%1*16)]
-   mov r8, [textures_sizes+24+(%1*16)]
-   xor r9, r9  ;border must be 0
-   push readed_data
-   push GL_UNSIGNED_BYTE
-   push rdx
+   mov edi, GL_TEXTURE_2D
+   xor esi, esi
+   mov edx, GL_RGB
+   mov ecx, [textures_sizes+16+(%1*16)]
+   mov r8d, [textures_sizes+24+(%1*16)]
+   xor r9d, r9d  ;border must be 0
+   push qword readed_data
+   push qword readed_data
+   push qword GL_UNSIGNED_BYTE
+   push qword rdx
 
    call glTexImage2D
-   sub rsp, 24
+   sub rsp, 32
 
    mov rdi, GL_TEXTURE_2D
    mov rsi, GL_TEXTURE_WRAP_S
@@ -412,7 +411,7 @@ endstruc
    ;shufpd xmm0, xmm0, 1 ;swap
    ;movapd xmm2, [main_camera + Camera.eyeX]
    ;addpd xmm0, xmm2
-   ;movupd [main_camera + Camera.centerX], xmm0     ; TODO: solve alignment(probably not possible)
+   ;movupd [main_camera + Camera.centerX], xmm0     ; TODO: solve alignment
    ;movsd xmm4, [main_camera + Camera.eyeZ]
    ;addsd xmm3, xmm4
    ;movsd [main_camera + Camera.centerZ], xmm3
@@ -1689,4 +1688,4 @@ fd_in  resq 1
 align 16
 boxes resd 1024
 terrain_height resd 16384
-readed_data resd 2097152
+readed_data resd 6291456;2097152
