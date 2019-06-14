@@ -7,6 +7,10 @@
 #define LARGEUR_ECRAN 1920
 #define HAUTEUR_ECRAN 1080
 
+/**
+ * @brief      initialize Open GL
+ */
+
 void init_ogl()
 {
     glMatrixMode(GL_PROJECTION);
@@ -31,6 +35,12 @@ void init_ogl()
     SDL_SetRelativeMouseMode(SDL_TRUE);
 }
 
+/**
+ * @brief      update camera look by angle (assembler version is not working)
+ *
+ * @param      ptr   The pointer
+ */
+
 void update_look(double * ptr)  //rewritten
 {
     *(ptr+3) = (*ptr) + cos(*(ptr+7))*cos(*(ptr+6));
@@ -38,15 +48,33 @@ void update_look(double * ptr)  //rewritten
     *(ptr+5) = *(ptr+2) + sin(*(ptr+6));
 }
 
+/**
+ * @brief      print decimal value (called from assembler)
+ *
+ * @param[in]  value  The value
+ */
+
 void Debug_tool_decimal(uint32_t value)
 {
     printf("decimal value :%d\n", value);
 }
 
+/**
+ * @brief      print double value (called from assembler)
+ *
+ * @param[in]  value  The value
+ */
+
 void Debug_tool_double(double value)
 {
     printf("double value :%f\n", value);
 }
+
+/**
+ * @brief      print float value (called from assembler)
+ *
+ * @param[in]  value  The value
+ */
 
 void Debug_tool_float(float value)
 {
