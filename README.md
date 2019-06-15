@@ -1,4 +1,8 @@
 # IPA_project
+
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](https://github.com/Ekelem/IPA_project/blob/master/LICENSE.txt)
+[![Documentation](https://img.shields.io/badge/manual-pdf-blue.svg?style=flat-square)](https://github.com/Ekelem/IPA_project/blob/master/doc/manual.pdf)
+
 Assembler project
 
 ## Motivation
